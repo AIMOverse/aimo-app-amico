@@ -1,0 +1,44 @@
+[package]
+name = "aimo-app-amico"
+version = "0.1.0"
+edition = "2024"
+description = "AIMO app WASM agent using Amico"
+license = "MIT"
+repository = "https://github.com/AIMOverse/AIMO-App-Amico"
+
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[features]
+default = ["console_error_panic_hook"]
+
+[dependencies]
+wasm-bindgen = "0.2.100"
+amico-core = "1.0.2"
+
+# The `console_error_panic_hook` crate provides better debugging of panics by
+# logging them with `console.error`. This is great for development, but requires
+# all the `std::fmt` and `std::panicking` infrastructure, so isn't great for
+# code size when deploying.
+console_error_panic_hook = { version = "0.1.7", optional = true }
+wasm-bindgen-futures = "0.4.50"
+#js-sys = "0.3.77"
+getrandom = { version = "0.3", features = ["wasm_js"] }
+#solana-sdk = { workspace = true }
+serde = { version = "1.0.219", features = ["derive"] }
+tokio = { version = "1.45.1", features = ["time", "macros", "rt"] }
+anyhow = { version = "1.0.98" }
+evenio = { version = "0.6.0" }
+tracing = { version = "0.1.41" }
+tracing-subscriber = "0.3.19"
+tracing-subscriber-wasm = "0.1.0"
+tokio_with_wasm = { version = "0.8.6", features = ["rt", "macros", "time"] }
+async-trait = { version = "0.1.88" }
+
+[dev-dependencies]
+wasm-bindgen-test = "0.3.50"
+
+[profile.release]
+# Keep debug info for better logs in release mode
+debug = true
