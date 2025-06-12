@@ -13,6 +13,8 @@ use tokio::{
 };
 use tokio_with_wasm::alias as tokio;
 
+use crate::service::AimoModel;
+
 /// The event source for frontend to send chat to the agent.
 #[derive(Debug)]
 pub struct ChatSource {
@@ -90,7 +92,17 @@ impl EventSource for ChatSource {
 }
 
 /// The strategy for the agent.
-pub struct AppStrategy;
+pub struct AppStrategy {
+    model: AimoModel,
+}
+
+impl AppStrategy {
+    pub fn new(jwt: String) -> Self {
+        Self {
+            model: AimoModel::new(jwt),
+        }
+    }
+}
 
 impl Strategy for AppStrategy {
     async fn deliberate(
@@ -105,16 +117,15 @@ impl Strategy for AppStrategy {
             .ok_or(anyhow!("Cannot handle non-interaction event"))?;
 
         match interaction {
-            Interaction::Chat(chat) => Ok(Some(format!("Received chat: {:?}", chat))),
-            // _ => Ok(None),
+            Interaction::Chat(chat) => Ok(Some(self.model.completion(&chat.messages).await?)),
         }
     }
 }
 
 /// Create an agent with a chat source and handler.
-pub fn create_agent() -> (Agent<AppStrategy>, ChatHandler) {
+pub fn create_agent(jwt: String) -> (Agent<AppStrategy>, ChatHandler) {
     let (chat_source, chat_handler) = create_chat();
-    let mut agent = Agent::new(AppStrategy);
+    let mut agent = Agent::new(AppStrategy::new(jwt));
     agent.spawn_event_source(chat_source, OnFinish::Stop);
     (agent, chat_handler)
 }

@@ -71,8 +71,8 @@ pub struct AgentWasmRuntime {
 #[wasm_bindgen]
 impl AgentWasmRuntime {
     #[wasm_bindgen(constructor)]
-    pub fn new() -> AgentWasmRuntime {
-        let (agent, chat_handler) = create_agent();
+    pub fn new(jwt: String) -> AgentWasmRuntime {
+        let (agent, chat_handler) = create_agent(jwt);
 
         AgentWasmRuntime {
             agent: Some(agent),
