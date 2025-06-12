@@ -35,6 +35,7 @@ name = "aimo-app-amico"
 version = "0.1.0"
 dependencies = [
  "amico-core",
+ "amico-sdk",
  "anyhow",
  "async-trait",
  "console_error_panic_hook",
@@ -53,9 +54,9 @@ dependencies = [
 
 [[package]]
 name = "amico-core"
-version = "1.0.2"
+version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a69124ffec3a019204b9dc5a56449a468d28e0b4b3974f27def0f6a1ea85d325"
+checksum = "648d0d4ba3e955211c944cf1bc3545d4f3ec8f011d8f2f5d81744a5ceceedba3"
 dependencies = [
  "anyhow",
  "chrono",
@@ -66,6 +67,21 @@ dependencies = [
  "tokio",
  "tokio_with_wasm",
  "tracing",
+]
+
+[[package]]
+name = "amico-sdk"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "30449bb561d77ac41acaddd31c57b85ab716b7a2549c435935156d442597d234"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.12",
+ "tokio",
+ "tokio_with_wasm",
 ]
 
 [[package]]
