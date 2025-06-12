@@ -1,122 +1,21 @@
-use std::{future::Future, sync::Arc};
+use std::sync::Arc;
 
 use amico_core::{
-    Agent, OnFinish,
-    traits::{EventSource, Strategy},
-    types::{AgentEvent, Chat, ChatMessage, Interaction},
+    Agent,
+    types::{Chat, ChatMessage},
 };
-use anyhow::anyhow;
-use serde::{Deserialize, Serialize};
-use tokio::{
-    spawn,
-    sync::{Mutex, mpsc},
-    task::JoinHandle,
-};
+use tokio::sync::Mutex;
 use tokio_with_wasm::alias as tokio;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::spawn_local;
 
+mod agent;
 mod log;
 mod service;
 
-#[derive(Serialize, Deserialize)]
-struct EventInner {
-    message: String,
-    value: i32,
-}
+use agent::{AppStrategy, ChatHandler, create_agent};
 
-#[derive(Debug)]
-struct ChatSource {
-    chat_rx: Arc<Mutex<mpsc::Receiver<Chat>>>,
-    reply_tx: mpsc::Sender<String>,
-}
-
-#[derive(Debug)]
-struct ChatHandler {
-    chat_tx: mpsc::Sender<Chat>,
-    reply_rx: Arc<Mutex<mpsc::Receiver<String>>>,
-}
-
-impl ChatHandler {
-    pub async fn chat(&mut self, chat: Chat) -> anyhow::Result<String> {
-        self.chat_tx.send(chat).await.unwrap_or_else(|err| {
-            tracing::error!("Failed to send chat: {}", err);
-        });
-
-        let reply = self.reply_rx.lock().await.recv().await.unwrap_or_else(|| {
-            tracing::error!("Failed to receive reply: channel closed");
-            "Failed to receive reply".to_string()
-        });
-
-        Ok(reply)
-    }
-}
-
-fn create_chat() -> (ChatSource, ChatHandler) {
-    let (chat_tx, chat_rx) = mpsc::channel(1);
-    let (reply_tx, reply_rx) = mpsc::channel(1);
-    (
-        ChatSource {
-            chat_rx: Arc::new(Mutex::new(chat_rx)),
-            reply_tx,
-        },
-        ChatHandler {
-            chat_tx,
-            reply_rx: Arc::new(Mutex::new(reply_rx)),
-        },
-    )
-}
-
-impl EventSource for ChatSource {
-    fn spawn<F, Fut>(&self, on_event: F) -> JoinHandle<anyhow::Result<()>>
-    where
-        F: Fn(AgentEvent) -> Fut + Send + Sync + 'static,
-        Fut: Future<Output = Option<String>> + Send + 'static,
-    {
-        let chat_rx = self.chat_rx.clone();
-        let reply_tx = self.reply_tx.clone();
-        spawn(async move {
-            while let Some(chat) = chat_rx.lock().await.recv().await {
-                let event =
-                    AgentEvent::new("Chat", "ChatSource").interaction(Interaction::Chat(chat));
-
-                // Make the Strategy handle the interaction.
-                let reply = on_event(event).await.unwrap_or_else(|| {
-                    tracing::warn!("Agent did not reply to interaction");
-                    "Agent did not reply to interaction".to_string()
-                });
-
-                reply_tx.send(reply).await.unwrap_or_else(|err| {
-                    tracing::error!("Failed to send reply: {}", err);
-                });
-            }
-
-            Ok(())
-        })
-    }
-}
-
-struct AppStrategy;
-
-impl Strategy for AppStrategy {
-    async fn deliberate(
-        &mut self,
-        agent_event: &AgentEvent,
-        _delegate: amico_core::world::ActionSender<'_>,
-    ) -> anyhow::Result<Option<String>> {
-        // Extract the interaction from the event.
-        // Do not handle non-interaction events now.
-        let interaction = agent_event
-            .get_interaction()
-            .ok_or(anyhow!("Cannot handle non-interaction event"))?;
-
-        match interaction {
-            Interaction::Chat(chat) => Ok(Some(format!("Received chat: {:?}", chat))),
-            // _ => Ok(None),
-        }
-    }
-}
-
+/// The WASM runtime for the agent.
 #[wasm_bindgen]
 pub struct AgentWasmRuntime {
     agent: Option<Agent<AppStrategy>>,
@@ -128,9 +27,7 @@ pub struct AgentWasmRuntime {
 impl AgentWasmRuntime {
     #[wasm_bindgen(constructor)]
     pub fn new() -> AgentWasmRuntime {
-        let (chat_source, chat_handler) = create_chat();
-        let mut agent = Agent::new(AppStrategy);
-        agent.spawn_event_source(chat_source, OnFinish::Stop);
+        let (agent, chat_handler) = create_agent();
 
         AgentWasmRuntime {
             agent: Some(agent),
@@ -187,16 +84,9 @@ impl AgentWasmRuntime {
     }
 }
 
-// #[tokio::main(flavor = "current_thread")]
-// async fn test_agent() {
-//     let mut agent_rt = AgentWasmRuntime::new();
-//     agent_rt.start();
-//     // Test is now async-friendly but we won't await anything here
-// }
-
+/// Initialize the WASM module.
 #[wasm_bindgen(start)]
 pub fn start() {
     log::init();
-    // Remove the test_agent call from start() since it's meant for testing
     tracing::info!("WASM module initialized");
 }
