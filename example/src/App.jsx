@@ -69,8 +69,11 @@ function App() {
     setLoading(true)
 
     try {
-      // Send message to agent and get response
-      const response = await agentRuntime.send_chat(userMessage.content)
+      // Create a Message object with content and role
+      const message = new wasmModule.Message(userMessage.content, 'user')
+
+      // Send messages array to agent and get response
+      const response = await agentRuntime.chat([message])
 
       // Add agent response to chat
       const agentMessage = {

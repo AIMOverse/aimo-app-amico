@@ -15,6 +15,51 @@ mod service;
 
 use agent::{AppStrategy, ChatHandler, create_agent};
 
+/// A WASM-bindgen compatible message structure that can be converted to ChatMessage.
+#[wasm_bindgen]
+#[derive(Clone, Debug)]
+pub struct Message {
+    content: String,
+    role: String,
+}
+
+#[wasm_bindgen]
+impl Message {
+    #[wasm_bindgen(constructor)]
+    pub fn new(content: String, role: String) -> Message {
+        Message { content, role }
+    }
+
+    #[wasm_bindgen(getter)]
+    pub fn content(&self) -> String {
+        self.content.clone()
+    }
+
+    #[wasm_bindgen(getter)]
+    pub fn role(&self) -> String {
+        self.role.clone()
+    }
+
+    #[wasm_bindgen(setter)]
+    pub fn set_content(&mut self, content: String) {
+        self.content = content;
+    }
+
+    #[wasm_bindgen(setter)]
+    pub fn set_role(&mut self, role: String) {
+        self.role = role;
+    }
+}
+
+impl From<Message> for ChatMessage {
+    fn from(message: Message) -> Self {
+        ChatMessage {
+            content: message.content,
+            role: message.role,
+        }
+    }
+}
+
 /// The WASM runtime for the agent.
 #[wasm_bindgen]
 pub struct AgentWasmRuntime {
@@ -55,20 +100,21 @@ impl AgentWasmRuntime {
     }
 
     #[wasm_bindgen]
-    pub async fn send_chat(&self, message: String) -> Result<String, JsValue> {
+    pub async fn chat(&self, messages: Vec<Message>) -> Result<String, JsValue> {
         if !self.running {
             return Err(JsValue::from_str(
                 "Agent is not running. Call start() first.",
             ));
         }
 
-        let chat_message = ChatMessage {
-            content: message,
-            ..Default::default()
-        };
+        // Convert Vec<Message> to Vec<ChatMessage>
+        let chat_messages: Vec<ChatMessage> = messages.into_iter().map(|msg| msg.into()).collect();
+
         let chat = Chat {
-            messages: vec![chat_message],
-            ..Default::default()
+            messages: chat_messages,
+
+            // We don't use session_id here
+            session_id: 0,
         };
 
         let mut handler = self.chat_handler.lock().await;
