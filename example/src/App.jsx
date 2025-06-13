@@ -33,10 +33,12 @@ function App() {
     try {
       const token = localStorage.getItem("access_token");
 
-      if (!token) {
+      if (!token || token === "") {
         alert("No token found, please login first");
         return;
       }
+
+      console.log("Access token", token);
 
       const runtime = new wasmModule.AgentWasmRuntime(token);
       console.log("AgentWasmRuntime created:", runtime);
