@@ -1,124 +1,30 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import "./App.css";
 import Login from "./login";
+import { useAgent } from "./hooks/useAmico";
 
 function App() {
-  const [wasmLoaded, setWasmLoaded] = useState(false);
-  const [wasmModule, setWasmModule] = useState(null);
-  const [agentRuntime, setAgentRuntime] = useState(null);
-  const [agentRunning, setAgentRunning] = useState(false);
-  const [chatMessages, setChatMessages] = useState([]);
   const [inputMessage, setInputMessage] = useState("");
-  const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    const initWasm = async () => {
-      try {
-        // Dynamic import of WASM module and binary
-        const [wasmModule, wasmUrl] = await Promise.all([
-          import("@aimoverse/aimo-app-amico"),
-          import("@aimoverse/aimo-app-amico/aimo_app_amico_bg.wasm?url"),
-        ]);
+  // Get token from localStorage
+  const token = localStorage.getItem("access_token");
 
-        console.log("WASM module loaded:", wasmModule);
-        console.log("WASM binary URL:", wasmUrl.default);
-
-        // Initialize the WASM module with the proper binary URL
-        await wasmModule.default(wasmUrl.default);
-        console.log("WASM module initialized");
-
-        setWasmModule(wasmModule);
-        setWasmLoaded(true);
-      } catch (error) {
-        console.error("Failed to initialize WASM:", error);
-      }
-    };
-
-    initWasm();
-  }, []);
-
-  const handleStartAgent = () => {
-    if (!wasmModule) return;
-
-    try {
-      const token = localStorage.getItem("access_token");
-
-      if (!token || token === "") {
-        alert("No token found, please login first");
-        return;
-      }
-
-      console.log("Access token", token);
-
-      const runtime = new wasmModule.AgentWasmRuntime(token);
-      console.log("AgentWasmRuntime created:", runtime);
-
-      runtime.start();
-      console.log("Agent started successfully");
-
-      setAgentRuntime(runtime);
-      setAgentRunning(runtime.is_running());
-
-      // Add a system message to indicate the agent is ready
-      setChatMessages([
-        {
-          id: Date.now(),
-          sender: "system",
-          content: "Agent is now running and ready to chat!",
-          timestamp: new Date().toLocaleTimeString(),
-        },
-      ]);
-    } catch (error) {
-      console.error("Error starting agent:", error);
-    }
-  };
+  // Use the clean hooks API
+  const {
+    isReady,
+    isRunning,
+    loading,
+    error,
+    messages,
+    startAgent,
+    sendMessage,
+  } = useAgent(token);
 
   const handleSendMessage = async () => {
-    if (!agentRuntime || !inputMessage.trim() || loading) return;
+    if (!inputMessage.trim() || loading) return;
 
-    const userMessage = {
-      id: Date.now(),
-      sender: "user",
-      content: inputMessage.trim(),
-      timestamp: new Date().toLocaleTimeString(),
-    };
-
-    // Add user message to chat
-    setChatMessages((prev) => [...prev, userMessage]);
+    await sendMessage(inputMessage);
     setInputMessage("");
-    setLoading(true);
-
-    try {
-      // Create a Message object with content and role
-      const message = new wasmModule.Message(userMessage.content, "user");
-
-      // Send messages array to agent and get response
-      const response = await agentRuntime.chat([message]);
-
-      // Add agent response to chat
-      const agentMessage = {
-        id: Date.now() + 1,
-        sender: "agent",
-        content: response,
-        timestamp: new Date().toLocaleTimeString(),
-      };
-
-      setChatMessages((prev) => [...prev, agentMessage]);
-    } catch (error) {
-      console.error("Error sending chat:", error);
-
-      // Add error message to chat
-      const errorMessage = {
-        id: Date.now() + 1,
-        sender: "system",
-        content: `Error: ${error.toString()}`,
-        timestamp: new Date().toLocaleTimeString(),
-      };
-
-      setChatMessages((prev) => [...prev, errorMessage]);
-    } finally {
-      setLoading(false);
-    }
   };
 
   const handleKeyPress = (e) => {
@@ -128,6 +34,14 @@ function App() {
     }
   };
 
+  const handleStartAgent = () => {
+    if (!token || token === "") {
+      alert("No token found, please login first");
+      return;
+    }
+    startAgent();
+  };
+
   return (
     <>
       <h1>Amico WASM Chat Agent</h1>
@@ -135,24 +49,30 @@ function App() {
       <Login />
 
       <div className="card">
-        {!agentRunning ? (
+        {error && (
+          <div style={{ color: "red", marginBottom: "10px" }}>
+            Error: {error.toString()}
+          </div>
+        )}
+
+        {!isRunning ? (
           <div style={{ marginBottom: "20px" }}>
             <button
               onClick={handleStartAgent}
-              disabled={!wasmLoaded}
+              disabled={!isReady}
               style={{
-                backgroundColor: wasmLoaded ? "#646cff" : "#888",
+                backgroundColor: isReady ? "#646cff" : "#888",
                 padding: "10px 20px",
                 borderRadius: "8px",
                 color: "white",
-                cursor: wasmLoaded ? "pointer" : "not-allowed",
+                cursor: isReady ? "pointer" : "not-allowed",
                 fontSize: "16px",
               }}
             >
-              {wasmLoaded ? "Start Agent" : "Loading WASM..."}
+              {isReady ? "Start Agent" : "Loading WASM..."}
             </button>
             <p>
-              {wasmLoaded
+              {isReady
                 ? "WASM loaded successfully! Click to start the chat agent."
                 : "Loading WASM module..."}
             </p>
@@ -171,7 +91,7 @@ function App() {
                 backgroundColor: "#f9f9f9",
               }}
             >
-              {chatMessages.map((msg) => (
+              {messages.map((msg) => (
                 <div
                   key={msg.id}
                   style={{
@@ -253,10 +173,7 @@ function App() {
             </div>
 
             <p style={{ marginTop: "20px", fontSize: "12px", color: "#666" }}>
-              Agent Status:{" "}
-              {agentRunning && agentRuntime?.is_running()
-                ? "🟢 Running"
-                : "🔴 Stopped"}
+              Agent Status: {isRunning ? "🟢 Running" : "🔴 Stopped"}
             </p>
           </div>
         )}
