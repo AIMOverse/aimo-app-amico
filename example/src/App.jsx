@@ -14,10 +14,20 @@ function App() {
   useEffect(() => {
     const initWasm = async () => {
       try {
-        // Dynamic import of WASM module
-        const wasm = await import("amico-wasm");
-        console.log("WASM module loaded:", wasm);
-        setWasmModule(wasm);
+        // Dynamic import of WASM module and binary
+        const [wasmModule, wasmUrl] = await Promise.all([
+          import("@aimoverse/aimo-app-amico"),
+          import("@aimoverse/aimo-app-amico/aimo_app_amico_bg.wasm?url"),
+        ]);
+
+        console.log("WASM module loaded:", wasmModule);
+        console.log("WASM binary URL:", wasmUrl.default);
+
+        // Initialize the WASM module with the proper binary URL
+        await wasmModule.default(wasmUrl.default);
+        console.log("WASM module initialized");
+
+        setWasmModule(wasmModule);
         setWasmLoaded(true);
       } catch (error) {
         console.error("Failed to initialize WASM:", error);
