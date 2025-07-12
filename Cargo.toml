@@ -27,6 +27,7 @@ wasm-bindgen-futures = "0.4.50"
 getrandom = { version = "0.3", features = ["wasm_js"] }
 #solana-sdk = { workspace = true }
 serde = { version = "1.0.219", features = ["derive"] }
+serde_json = "1"
 tokio = { version = "1.45.1", features = ["time", "macros", "rt"] }
 anyhow = { version = "1.0.98" }
 evenio = { version = "0.6.0" }
@@ -39,6 +40,7 @@ reqwest = { version = "0.12.20", features = [
     "rustls-tls",
     "json",
 ], default-features = false }
+chrono = { version = "0.4", features = ["serde", "wasm-bindgen"] }
 
 [dev-dependencies]
 wasm-bindgen-test = "0.3.50"

@@ -12,6 +12,7 @@ use wasm_bindgen_futures::spawn_local;
 mod agent;
 mod log;
 mod service;
+mod note;
 
 use agent::{AppStrategy, ChatHandler, create_agent};
 
