@@ -1,12 +1,19 @@
 use serde::{Deserialize, Serialize};
 
-/// AI embedding metadata
+/// Main Note structure representing a complete note with metadata and content
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct AIEmbedding {
-    pub id: String,
-    pub content: String,
-    pub embedding: Vec<f32>,
-    pub created_at: String, // ISO timestamp
+#[serde(rename_all = "camelCase")]
+pub struct Note {
+    pub id: Option<i32>,
+    pub note_id: String,
+    pub lexical_state: LexicalState,
+}
+
+/// The top-level Lexical state containing the root node
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LexicalState {
+    pub root: RootNode,
 }
 
 /// Base properties shared by all nodes
@@ -23,7 +30,6 @@ pub struct BaseNodeProperties {
 
 /// Text direction enumeration
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "lowercase")]
 pub enum TextDirection {
     #[serde(rename = "ltr")]
     LeftToRight,
