@@ -1,5 +1,5 @@
 [package]
-name = "aimo-app-amico"
+name = "aimo-note-agent"
 version = "0.1.0"
 edition = "2024"
 description = "AIMO app WASM agent using Amico"
@@ -41,6 +41,7 @@ reqwest = { version = "0.12.20", features = [
     "json",
 ], default-features = false }
 chrono = { version = "0.4", features = ["serde", "wasm-bindgen"] }
+serde-wasm-bindgen = "0.6.5"
 
 [dev-dependencies]
 wasm-bindgen-test = "0.3.50"

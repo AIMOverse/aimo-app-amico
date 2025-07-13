@@ -15,6 +15,9 @@ mod service;
 mod note;
 
 use agent::{AppStrategy, ChatHandler, create_agent};
+use note::Note;
+
+use crate::agent::ChatContext;
 
 /// A WASM-bindgen compatible message structure that can be converted to ChatMessage.
 #[wasm_bindgen]
@@ -101,12 +104,15 @@ impl AgentWasmRuntime {
     }
 
     #[wasm_bindgen]
-    pub async fn chat(&self, messages: Vec<Message>) -> Result<String, JsValue> {
+    pub async fn chat(&self, messages: Vec<Message>, cursor_position: usize, note: JsValue) -> Result<JsValue, JsValue> {
         if !self.running {
             return Err(JsValue::from_str(
                 "Agent is not running. Call start() first.",
             ));
         }
+
+        // Parse the note from the JS value.
+        let note: Note = serde_wasm_bindgen::from_value(note)?;
 
         // Convert Vec<Message> to Vec<ChatMessage>
         let chat_messages: Vec<ChatMessage> = messages.into_iter().map(|msg| msg.into()).collect();
@@ -119,8 +125,11 @@ impl AgentWasmRuntime {
         };
 
         let mut handler = self.chat_handler.lock().await;
-        match handler.chat(chat).await {
-            Ok(response) => Ok(response),
+        match handler.chat(chat, &ChatContext {
+            note,
+            cursor_position,
+        }).await {
+            Ok(action) => Ok(serde_wasm_bindgen::to_value(&action)?),
             Err(e) => Err(JsValue::from_str(&format!("Chat error: {}", e))),
         }
     }
