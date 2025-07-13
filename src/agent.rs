@@ -52,26 +52,7 @@ pub fn get_system_prompt(ctx: &ChatContext) -> anyhow::Result<String> {
         - If you find you have already take an action in the messages but the user wants you to modify your action, just re-generate the action based on the original note content.
         
         ## Available Actions
-
-        ### Reply to the user
-
-        If you can't determine what the user wants to do, you can reply to the user with a message to request more information.
-
-        For example:
-
-        ```
-        Hello, I'm AiMo, your note-taking assistant. What would you like to do with the note?
-        ```
-
-        Or:
-
-        ```
-        {{
-            \"action\": \"reply\",
-            \"content\": \"Hello, I'm AiMo, your note-taking assistant. What would you like to do with the note?\"
-        }}
-        ```
-
+        
         ### Insert a new node
 
         You can insert a new node after a specific node.
@@ -107,6 +88,27 @@ pub fn get_system_prompt(ctx: &ChatContext) -> anyhow::Result<String> {
             \"content\": \"Hello, world!\"
         }}
         ```
+
+        ### Reply to the user
+
+        If you can't determine what the user wants to do, you can reply to the user with a message to request more information.
+
+        For example:
+
+        ```
+        Hello, I'm AiMo, your note-taking assistant. What would you like to do with the note?
+        ```
+
+        Or:
+
+        ```
+        {{
+            \"action\": \"reply\",
+            \"content\": \"Hello, I'm AiMo, your note-taking assistant. What would you like to do with the note?\"
+        }}
+        ```
+
+        **NOTE**: Replying is a seperate action. Do not include editing actions in the reply.
         ",
     );
     Ok(prompt)
