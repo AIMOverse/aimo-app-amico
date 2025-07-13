@@ -327,10 +327,216 @@ pub struct MentionNode {
     pub base: BaseNodeProperties,
 }
 
+/// Brief node - For the agent to work on.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BriefNode {
+    pub id: String,
+    pub node_type: String,
+    pub content: String,
+}
+
+impl Note {
+    /// Get the briefs for the note.
+    pub fn get_brief(&self) -> Vec<BriefNode> {
+        let mut briefs = Vec::new();
+        
+        // Process each root node with its index
+        for (index, node) in self.lexical_state.root.children.iter().enumerate() {
+            self.collect_brief_from_node(node, &mut briefs, index);
+        }
+        
+        briefs
+    }
+    
+    /// Collect brief from a single node using its root index
+    fn collect_brief_from_node(&self, node: &LexicalNode, briefs: &mut Vec<BriefNode>, root_index: usize) {
+        let (node_type, content) = match node {
+            LexicalNode::Text(text_node) => {
+                ("text", text_node.text.clone())
+            }
+            LexicalNode::Paragraph(para) => {
+                let content = self.extract_text_from_nodes(&para.children);
+                ("paragraph", content)
+            }
+            LexicalNode::Heading(heading) => {
+                let content = self.extract_text_from_nodes(&heading.children);
+                ("heading", content)
+            }
+            LexicalNode::List(list) => {
+                let content = self.extract_text_from_nodes(&list.children);
+                ("list", content)
+            }
+            LexicalNode::ListItem(item) => {
+                let content = self.extract_text_from_nodes(&item.children);
+                ("listitem", content)
+            }
+            LexicalNode::Quote(quote) => {
+                let content = self.extract_text_from_nodes(&quote.children);
+                ("quote", content)
+            }
+            LexicalNode::Code(code) => {
+                let content = if let Some(text) = &code.text {
+                    text.clone()
+                } else if let Some(children) = &code.children {
+                    self.extract_text_from_nodes(children)
+                } else {
+                    String::new()
+                };
+                ("code", content)
+            }
+            LexicalNode::Link(link) => {
+                let content = format!("{} ({})", self.extract_text_from_nodes(&link.children), link.url);
+                ("link", content)
+            }
+            LexicalNode::AutoLink(auto_link) => {
+                let content = format!("{} ({})", self.extract_text_from_nodes(&auto_link.children), auto_link.url);
+                ("autolink", content)
+            }
+            LexicalNode::Hashtag(hashtag) => {
+                ("hashtag", hashtag.text.clone())
+            }
+            LexicalNode::Table(table) => {
+                let content = self.extract_text_from_nodes(&table.children);
+                ("table", content)
+            }
+            LexicalNode::TableRow(row) => {
+                let content = self.extract_text_from_nodes(&row.children);
+                ("tablerow", content)
+            }
+            LexicalNode::TableCell(cell) => {
+                let content = self.extract_text_from_nodes(&cell.children);
+                ("tablecell", content)
+            }
+            LexicalNode::PageBreak(_) => {
+                ("page-break", "---".to_string())
+            }
+            LexicalNode::AIEmbedding(ai) => {
+                ("ai-embedding", ai.content.clone())
+            }
+            LexicalNode::VoiceInput(voice) => {
+                ("voice-input", voice.content.clone())
+            }
+            LexicalNode::ChatMessage(msg) => {
+                let content = format!("[{}] {}", msg.sender.to_string(), msg.content);
+                ("chat-message", content)
+            }
+            LexicalNode::ChatSession(session) => {
+                let content = session.messages.iter()
+                    .map(|msg| format!("[{}] {}", msg.sender.to_string(), msg.content))
+                    .collect::<Vec<_>>()
+                    .join("\n");
+                ("chat-session", content)
+            }
+            LexicalNode::Mention(mention) => {
+                ("mention", mention.text.clone())
+            }
+        };
+        
+        // Only add non-empty content to briefs
+        if !content.trim().is_empty() {
+            briefs.push(BriefNode {
+                id: root_index.to_string(),
+                node_type: node_type.to_string(),
+                content,
+            });
+        }
+    }
+    
+    /// Helper method to recursively extract text from nodes
+    fn extract_text_from_nodes(&self, nodes: &[LexicalNode]) -> String {
+        let mut text = String::new();
+        
+        for node in nodes {
+            match node {
+                LexicalNode::Text(text_node) => {
+                    text.push_str(&text_node.text);
+                }
+                LexicalNode::Paragraph(para) => {
+                    text.push_str(&self.extract_text_from_nodes(&para.children));
+                }
+                LexicalNode::Heading(heading) => {
+                    text.push_str(&self.extract_text_from_nodes(&heading.children));
+                }
+                LexicalNode::List(list) => {
+                    text.push_str(&self.extract_text_from_nodes(&list.children));
+                }
+                LexicalNode::ListItem(item) => {
+                    text.push_str("• ");
+                    text.push_str(&self.extract_text_from_nodes(&item.children));
+                }
+                LexicalNode::Quote(quote) => {
+                    text.push_str(&self.extract_text_from_nodes(&quote.children));
+                }
+                LexicalNode::Code(code) => {
+                    if let Some(code_text) = &code.text {
+                        text.push_str(code_text);
+                    }
+                    if let Some(children) = &code.children {
+                        text.push_str(&self.extract_text_from_nodes(children));
+                    }
+                }
+                LexicalNode::Link(link) => {
+                    text.push_str(&self.extract_text_from_nodes(&link.children));
+                }
+                LexicalNode::AutoLink(auto_link) => {
+                    text.push_str(&self.extract_text_from_nodes(&auto_link.children));
+                }
+                LexicalNode::Hashtag(hashtag) => {
+                    text.push_str(&hashtag.text);
+                }
+                LexicalNode::Table(table) => {
+                    text.push_str(&self.extract_text_from_nodes(&table.children));
+                }
+                LexicalNode::TableRow(row) => {
+                    text.push_str(&self.extract_text_from_nodes(&row.children));
+                }
+                LexicalNode::TableCell(cell) => {
+                    text.push_str(&self.extract_text_from_nodes(&cell.children));
+                }
+                LexicalNode::AIEmbedding(ai) => {
+                    text.push_str(&ai.content);
+                }
+                LexicalNode::VoiceInput(voice) => {
+                    text.push_str(&voice.content);
+                }
+                LexicalNode::ChatMessage(msg) => {
+                    text.push_str(&msg.content);
+                }
+                LexicalNode::ChatSession(session) => {
+                    for msg in &session.messages {
+                        text.push_str(&msg.content);
+                    }
+                }
+                LexicalNode::Mention(mention) => {
+                    text.push_str(&mention.text);
+                }
+                LexicalNode::PageBreak(_) => {
+                    // Page breaks don't contribute to text content
+                }
+            }
+        }
+        
+        text
+    }
+}
+
+// Helper implementation for MessageSender to string conversion
+impl std::fmt::Display for MessageSender {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            MessageSender::User => write!(f, "user"),
+            MessageSender::Agent => write!(f, "agent"),
+            MessageSender::System => write!(f, "system"),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use std::fs;
+    use std::collections::HashSet;
 
     #[test]
     fn test_parse_example_note() {
@@ -517,5 +723,115 @@ mod tests {
         assert_eq!(note.lexical_state.root.children.len(), reparsed.lexical_state.root.children.len());
         
         println!("✓ Successfully completed roundtrip serialization test");
+    }
+    
+    #[test]
+    fn test_empty_root_nodes() {
+        let json_content = fs::read_to_string("assets/example_note.json")
+            .expect("Should be able to read assets/example_note.json");
+        
+        let note: Note = serde_json::from_str(&json_content)
+            .expect("Should be able to parse example note JSON");
+        
+        println!("Total root children: {}", note.lexical_state.root.children.len());
+        
+        // Examine each root node to see which ones are "empty"
+        for (index, child) in note.lexical_state.root.children.iter().enumerate() {
+            let (node_type, content) = match child {
+                LexicalNode::Paragraph(para) => {
+                    let content = note.extract_text_from_nodes(&para.children);
+                    ("paragraph", content)
+                }
+                LexicalNode::AIEmbedding(ai) => {
+                    ("ai-embedding", ai.content.clone())
+                }
+                LexicalNode::Text(text) => {
+                    ("text", text.text.clone())
+                }
+                _ => ("other", "N/A".to_string())
+            };
+            
+            let is_empty = content.trim().is_empty();
+            println!("Root[{}]: {} - empty: {} - content: '{}'", 
+                    index, node_type, is_empty, 
+                    content.chars().take(30).collect::<String>());
+        }
+        
+        // Now get briefs and show which indices are missing
+        let briefs = note.get_brief();
+        let brief_ids: HashSet<String> = briefs.iter().map(|b| b.id.clone()).collect();
+        
+        println!("\nBrief node IDs: {:?}", brief_ids);
+        println!("Missing indices (empty nodes):");
+        for i in 0..note.lexical_state.root.children.len() {
+            if !brief_ids.contains(&i.to_string()) {
+                println!("  Index {} is missing (was empty)", i);
+            }
+        }
+    }
+
+    #[test]
+    fn test_get_brief() {
+        let json_content = fs::read_to_string("assets/example_note.json")
+            .expect("Should be able to read assets/example_note.json");
+        
+        let note: Note = serde_json::from_str(&json_content)
+            .expect("Should be able to parse example note JSON");
+        
+        // Get brief nodes
+        let briefs = note.get_brief();
+        
+        // Verify we have brief nodes
+        assert!(!briefs.is_empty(), "Should have brief nodes");
+        
+        // Test brief node structure
+        for brief in &briefs {
+            assert!(!brief.id.is_empty(), "Brief ID should not be empty");
+            assert!(!brief.node_type.is_empty(), "Brief node type should not be empty");
+            assert!(!brief.content.trim().is_empty(), "Brief content should not be empty");
+            
+            // Check that ID is a valid root node index (numeric string)
+            assert!(brief.id.parse::<usize>().is_ok(), "Brief ID should be a valid root node index: {}", brief.id);
+        }
+        
+        // Test that we have different node types
+        let node_types: HashSet<&String> = briefs.iter().map(|b| &b.node_type).collect();
+        assert!(node_types.len() > 1, "Should have multiple node types");
+        
+        // Test that we have both paragraph and AI embedding nodes
+        let has_paragraph = briefs.iter().any(|b| b.node_type == "paragraph");
+        let has_ai_embedding = briefs.iter().any(|b| b.node_type == "ai-embedding");
+        
+        assert!(has_paragraph, "Should have paragraph brief nodes");
+        assert!(has_ai_embedding, "Should have AI embedding brief nodes");
+        
+        // Test specific content
+        let has_hiii = briefs.iter().any(|b| b.content.contains("HIII"));
+        let has_test = briefs.iter().any(|b| b.content.contains("test"));
+        
+        assert!(has_hiii, "Should find 'HIII' in brief content");
+        assert!(has_test, "Should find 'test' in brief content");
+        
+        // Test that IDs correspond to root node indices
+        let root_children_count = note.lexical_state.root.children.len();
+        for brief in &briefs {
+            let index: usize = brief.id.parse().unwrap();
+            assert!(index < root_children_count, "Brief ID {} should be less than root children count {}", index, root_children_count);
+        }
+        
+        // Test that IDs are unique (no duplicates for different root nodes)
+        let mut found_ids = HashSet::new();
+        for brief in &briefs {
+            assert!(found_ids.insert(brief.id.clone()), "Brief IDs should be unique");
+        }
+        
+        println!("✓ Successfully created {} brief nodes", briefs.len());
+        println!("✓ Found {} different node types", node_types.len());
+        println!("✓ Root has {} children", root_children_count);
+        
+        // Print first few briefs for verification
+        for (i, brief) in briefs.iter().take(5).enumerate() {
+            println!("Brief {}: id={}, type={}, content={}", i, brief.id, brief.node_type, brief.content.chars().take(50).collect::<String>());
+        }
     }
 }
