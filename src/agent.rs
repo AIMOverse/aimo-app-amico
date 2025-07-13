@@ -12,27 +12,43 @@ use tokio::{
 };
 use tokio_with_wasm::alias as tokio;
 
-use crate::{note::{BriefNode, Note}, service::AimoModel};
+use crate::{note::Note, service::AimoModel};
 
-pub fn get_system_prompt(brief_note: Vec<BriefNode>) -> anyhow::Result<String> {
+pub fn get_system_prompt(ctx: &ChatContext) -> anyhow::Result<String> {
+    let brief_note = ctx.note.get_brief();
     let brief_note_str = serde_json::to_string(&brief_note)?;
+    let cursor_position = ctx.cursor_position;
+    let insert_after = if cursor_position == 0 { 0 } else { cursor_position - 1 };
+
     let prompt = format!(
         "You are a helpful assistant, AiMo, that can help with note-taking.
 
         ## Environment Inspection
         
-        Here's the structured note the user is working on: {brief_note_str}
+        Here's the structured note the user is working on:
+
+        ```json
+        {brief_note_str}
+        ```
+
+        The user is currently requesting to do something at node {cursor_position} in the note.
 
         ## Your Task
 
         You are given the content of the note that the user is working on, and the messages you have had with the user.
         You need to chat with the user to determine what they want to do with the note.
         When you have determined what the user wants to do, you need to take actions to help the user.
+        You can only take one action at a time.
+
+        Notice the user's cursor position is at node {cursor_position} in the note. Modify around the cursor position.
+        If the cursor position doesn't contain any node, you can insert a new node at the cursor position. 
+        (the insert_after field in the `insert_node` action should be {insert_after} here)
 
         ## Rules
 
         - You must always reply to the user in the same language as the user's messages.
         - For the `insert_node` and `modify_node` actions, you must always reply with a JSON string, and **DO NOT** include any other text or the code frame.
+        - You can find previous actions in the messages. If the action is not valid, the user will tell you.
         - If you find you have already take an action in the messages but the user wants you to modify your action, just re-generate the action based on the original note content.
         
         ## Available Actions
@@ -116,7 +132,7 @@ impl ChatHandler {
         // Add the system prompt to the chat.
         let mut messages = Vec::new();
         messages.push(ChatMessage {
-            content: get_system_prompt(ctx.note.get_brief())?,
+            content: get_system_prompt(ctx)?,
             role: "system".to_string(),
         });
         messages.extend(chat.messages);
