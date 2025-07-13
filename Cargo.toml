@@ -2,10 +2,9 @@
 name = "aimo-note-agent"
 version = "0.1.0"
 edition = "2024"
-description = "AIMO app WASM agent using Amico"
+description = "AIMO note app agent built with Amico"
 license = "MIT"
-repository = "https://github.com/AIMOverse/AIMO-App-Amico"
-
+repository = "https://github.com/AIMOverse/note-agent"
 
 [lib]
 crate-type = ["cdylib", "rlib"]
