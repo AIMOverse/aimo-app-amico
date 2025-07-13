@@ -2,9 +2,8 @@ use serde::{Deserialize, Serialize};
 
 /// Main Note structure representing a complete note with metadata and content
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase")] // Serde ignores unknown fields by default
 pub struct Note {
-    pub id: Option<i32>,
     pub note_id: String,
     pub lexical_state: LexicalState,
 }
@@ -97,6 +96,13 @@ pub enum LexicalNode {
 pub struct TextNode {
     pub text: String,
     pub format: u32, // Binary flags: 1=bold, 2=italic, 4=underline, 8=strikethrough
+    // Additional fields found in the example JSON
+    #[serde(default)]
+    pub detail: u32,
+    #[serde(default)]
+    pub mode: String,
+    #[serde(default)]
+    pub style: String,
     #[serde(flatten)]
     pub base: BaseNodeProperties,
 }
@@ -105,6 +111,11 @@ pub struct TextNode {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ParagraphNode {
     pub children: Vec<LexicalNode>,
+    // Additional fields found in the example JSON
+    #[serde(default, rename = "textFormat")]
+    pub text_format: u32,
+    #[serde(default, rename = "textStyle")]
+    pub text_style: String,
     #[serde(flatten)]
     pub base: BaseNodeProperties,
 }
@@ -314,4 +325,197 @@ pub struct MentionNode {
     pub format: u32,
     #[serde(flatten)]
     pub base: BaseNodeProperties,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+
+    #[test]
+    fn test_parse_example_note() {
+        // Read the example JSON file
+        let json_content = fs::read_to_string("assets/example_note.json")
+            .expect("Should be able to read assets/example_note.json");
+        
+        // Parse the JSON into our Note struct
+        let note: Note = serde_json::from_str(&json_content)
+            .expect("Should be able to parse example note JSON");
+        
+        // Test basic structure
+        assert_eq!(note.note_id, "ef454d5a-2474-4ac1-907a-61cb62de2f9b");
+        assert_eq!(note.lexical_state.root.node_type, "root");
+        assert_eq!(note.lexical_state.root.base.version, 1);
+        
+        // Test that we have the expected number of children
+        let children_count = note.lexical_state.root.children.len();
+        assert!(children_count > 0, "Root should have children");
+        
+        // Test specific node types and content
+        let mut _text_nodes = 0;
+        let mut paragraph_nodes = 0;
+        let mut ai_embedding_nodes = 0;
+        
+        for child in &note.lexical_state.root.children {
+            match child {
+                LexicalNode::Text(_) => _text_nodes += 1,
+                LexicalNode::Paragraph(para) => {
+                    paragraph_nodes += 1;
+                    // Test that paragraph has expected structure
+                    assert_eq!(para.base.version, 1);
+                    if !para.children.is_empty() {
+                        // Check first text node in first paragraph
+                        if let LexicalNode::Text(text_node) = &para.children[0] {
+                            assert!(!text_node.text.is_empty());
+                            assert_eq!(text_node.base.version, 1);
+                        }
+                    }
+                }
+                LexicalNode::AIEmbedding(ai) => {
+                    ai_embedding_nodes += 1;
+                    // Test AI embedding structure
+                    assert_eq!(ai.base.version, 1);
+                    assert!(!ai.content.is_empty() || ai.is_loading);
+                }
+                _ => {}
+            }
+        }
+        
+        // Verify we found the expected node types
+        assert!(paragraph_nodes > 0, "Should have found paragraph nodes");
+        assert!(ai_embedding_nodes > 0, "Should have found AI embedding nodes");
+        
+        // Test specific content from the example
+        let mut found_hiii = false;
+        let mut found_test = false;
+        
+        for child in &note.lexical_state.root.children {
+            if let LexicalNode::Paragraph(para) = child {
+                for text_child in &para.children {
+                    if let LexicalNode::Text(text_node) = text_child {
+                        if text_node.text == "HIII" {
+                            found_hiii = true;
+                        }
+                        if text_node.text == "test" {
+                            found_test = true;
+                        }
+                    }
+                }
+            }
+        }
+        
+        assert!(found_hiii, "Should find 'HIII' text in the note");
+        assert!(found_test, "Should find 'test' text in the note");
+        
+        println!("✓ Successfully parsed example note with {} children", children_count);
+        println!("✓ Found {} paragraph nodes", paragraph_nodes);
+        println!("✓ Found {} AI embedding nodes", ai_embedding_nodes);
+    }
+    
+    #[test]
+    fn test_parse_specific_ai_embedding() {
+        let json_content = fs::read_to_string("assets/example_note.json")
+            .expect("Should be able to read assets/example_note.json");
+        
+        let note: Note = serde_json::from_str(&json_content)
+            .expect("Should be able to parse example note JSON");
+        
+        // Find a specific AI embedding node
+        let mut found_loading_ai = false;
+        let mut found_content_ai = false;
+        
+        for child in &note.lexical_state.root.children {
+            if let LexicalNode::AIEmbedding(ai) = child {
+                if ai.is_loading && ai.content.is_empty() {
+                    found_loading_ai = true;
+                }
+                if !ai.is_loading && ai.content.contains("HIII") {
+                    found_content_ai = true;
+                }
+            }
+        }
+        
+        assert!(found_loading_ai, "Should find a loading AI embedding");
+        assert!(found_content_ai, "Should find AI embedding with HIII content");
+    }
+    
+    #[test]
+    fn test_parse_text_node_extra_fields() {
+        let json_content = fs::read_to_string("assets/example_note.json")
+            .expect("Should be able to read assets/example_note.json");
+        
+        let note: Note = serde_json::from_str(&json_content)
+            .expect("Should be able to parse example note JSON");
+        
+        // Find a text node and verify extra fields are handled
+        let mut found_text_with_extra_fields = false;
+        
+        for child in &note.lexical_state.root.children {
+            if let LexicalNode::Paragraph(para) = child {
+                for text_child in &para.children {
+                    if let LexicalNode::Text(text_node) = text_child {
+                        // Check that extra fields are present and parsed correctly
+                        assert_eq!(text_node.detail, 0);
+                        assert_eq!(text_node.mode, "normal");
+                        assert_eq!(text_node.style, "");
+                        found_text_with_extra_fields = true;
+                        break;
+                    }
+                }
+                if found_text_with_extra_fields {
+                    break;
+                }
+            }
+        }
+        
+        assert!(found_text_with_extra_fields, "Should find text node with extra fields");
+    }
+    
+    #[test]
+    fn test_parse_paragraph_extra_fields() {
+        let json_content = fs::read_to_string("assets/example_note.json")
+            .expect("Should be able to read assets/example_note.json");
+        
+        let note: Note = serde_json::from_str(&json_content)
+            .expect("Should be able to parse example note JSON");
+        
+        // Find a paragraph node and verify extra fields are handled
+        let mut found_paragraph_with_extra_fields = false;
+        
+        for child in &note.lexical_state.root.children {
+            if let LexicalNode::Paragraph(para) = child {
+                // Check that extra fields are present and parsed correctly
+                assert_eq!(para.text_format, 0);
+                assert_eq!(para.text_style, "");
+                found_paragraph_with_extra_fields = true;
+                break;
+            }
+        }
+        
+        assert!(found_paragraph_with_extra_fields, "Should find paragraph node with extra fields");
+    }
+    
+    #[test]
+    fn test_roundtrip_serialization() {
+        let json_content = fs::read_to_string("assets/example_note.json")
+            .expect("Should be able to read assets/example_note.json");
+        
+        let note: Note = serde_json::from_str(&json_content)
+            .expect("Should be able to parse example note JSON");
+        
+        // Serialize back to JSON
+        let serialized = serde_json::to_string(&note)
+            .expect("Should be able to serialize note");
+        
+        // Parse it again
+        let reparsed: Note = serde_json::from_str(&serialized)
+            .expect("Should be able to parse serialized note");
+        
+        // Verify key fields are preserved
+        assert_eq!(note.note_id, reparsed.note_id);
+        assert_eq!(note.lexical_state.root.node_type, reparsed.lexical_state.root.node_type);
+        assert_eq!(note.lexical_state.root.children.len(), reparsed.lexical_state.root.children.len());
+        
+        println!("✓ Successfully completed roundtrip serialization test");
+    }
 }
