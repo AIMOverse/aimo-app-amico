@@ -331,7 +331,7 @@ pub struct MentionNode {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BriefNode {
-    pub id: String,
+    pub id: usize,
     pub node_type: String,
     pub content: String,
 }
@@ -436,7 +436,7 @@ impl Note {
         // Only add non-empty content to briefs
         if !content.trim().is_empty() {
             briefs.push(BriefNode {
-                id: root_index.to_string(),
+                id: root_index,
                 node_type: node_type.to_string(),
                 content,
             });
@@ -759,12 +759,12 @@ mod tests {
         
         // Now get briefs and show which indices are missing
         let briefs = note.get_brief();
-        let brief_ids: HashSet<String> = briefs.iter().map(|b| b.id.clone()).collect();
+        let brief_ids: HashSet<usize> = briefs.iter().map(|b| b.id).collect();
         
         println!("\nBrief node IDs: {:?}", brief_ids);
         println!("Missing indices (empty nodes):");
         for i in 0..note.lexical_state.root.children.len() {
-            if !brief_ids.contains(&i.to_string()) {
+            if !brief_ids.contains(&i) {
                 println!("  Index {} is missing (was empty)", i);
             }
         }
@@ -786,12 +786,8 @@ mod tests {
         
         // Test brief node structure
         for brief in &briefs {
-            assert!(!brief.id.is_empty(), "Brief ID should not be empty");
             assert!(!brief.node_type.is_empty(), "Brief node type should not be empty");
             assert!(!brief.content.trim().is_empty(), "Brief content should not be empty");
-            
-            // Check that ID is a valid root node index (numeric string)
-            assert!(brief.id.parse::<usize>().is_ok(), "Brief ID should be a valid root node index: {}", brief.id);
         }
         
         // Test that we have different node types
@@ -815,14 +811,13 @@ mod tests {
         // Test that IDs correspond to root node indices
         let root_children_count = note.lexical_state.root.children.len();
         for brief in &briefs {
-            let index: usize = brief.id.parse().unwrap();
-            assert!(index < root_children_count, "Brief ID {} should be less than root children count {}", index, root_children_count);
+            assert!(brief.id < root_children_count, "Brief ID {} should be less than root children count {}", brief.id, root_children_count);
         }
         
         // Test that IDs are unique (no duplicates for different root nodes)
         let mut found_ids = HashSet::new();
         for brief in &briefs {
-            assert!(found_ids.insert(brief.id.clone()), "Brief IDs should be unique");
+            assert!(found_ids.insert(brief.id), "Brief IDs should be unique");
         }
         
         println!("✓ Successfully created {} brief nodes", briefs.len());
