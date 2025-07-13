@@ -1,0 +1,72 @@
+{
+  "name": "@aimoverse/note-agent-react",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "React TypeScript SDK for WASM note agent",
+  "main": "lib/index.js",
+  "types": "lib/index.d.ts",
+  "module": "lib/index.esm.js",
+  "files": [
+    "lib",
+    "src"
+  ],
+  "scripts": {
+    "build": "tsc && rollup -c",
+    "build:types": "tsc --emitDeclarationOnly --declaration",
+    "build:js": "rollup -c",
+    "dev": "tsc --watch",
+    "clean": "rimraf lib",
+    "prepare": "npm run build",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "lint": "eslint src/**/*.{ts,tsx}",
+    "lint:fix": "eslint src/**/*.{ts,tsx} --fix"
+  },
+  "peerDependencies": {
+    "react": ">=16.8.0",
+    "react-dom": ">=16.8.0"
+  },
+  "dependencies": {
+    "@types/react": "^18.0.0",
+    "@types/react-dom": "^18.0.0"
+  },
+  "devDependencies": {
+    "@rollup/plugin-commonjs": "^25.0.0",
+    "@rollup/plugin-node-resolve": "^15.0.0",
+    "@rollup/plugin-typescript": "^11.0.0",
+    "@types/jest": "^29.0.0",
+    "@types/node": "^18.0.0",
+    "@typescript-eslint/eslint-plugin": "^6.0.0",
+    "@typescript-eslint/parser": "^6.0.0",
+    "eslint": "^8.0.0",
+    "eslint-plugin-react": "^7.32.0",
+    "eslint-plugin-react-hooks": "^4.6.0",
+    "jest": "^29.0.0",
+    "react": "^18.0.0",
+    "react-dom": "^18.0.0",
+    "rimraf": "^5.0.0",
+    "rollup": "^3.0.0",
+    "ts-jest": "^29.0.0",
+    "tslib": "^2.8.1",
+    "typescript": "^5.0.0"
+  },
+  "keywords": [
+    "react",
+    "typescript",
+    "wasm",
+    "agent",
+    "note",
+    "ai",
+    "lexical"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/AIMOverse/note-agent"
+  },
+  "bugs": {
+    "url": "https://github.com/AIMOverse/note-agent/issues"
+  },
+  "homepage": "https://github.com/AIMOverse/note-agent#readme",
+  "author": "Archer",
+  "license": "MIT"
+}

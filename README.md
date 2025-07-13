@@ -5,10 +5,10 @@
 ```bash
 # For example, build for AIMOverse npm package scope.
 # This will produce `@aimoverse/aimo-app-amico`
-wasm-pack build --target web --out-dir pkg --scope aimoverse
+wasm-pack build --target web --out-dir pkg-wasm --scope aimoverse
 
 # Publish the package
-cd pkg && npm publish --access public
+cd pkg-wasm && npm publish --access public
 ```
 
 ## React Project Usage
