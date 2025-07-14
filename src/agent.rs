@@ -145,6 +145,8 @@ impl ChatHandler {
             "Failed to receive reply".to_string()
         });
 
+        tracing::info!("Received reply: {}", reply);
+
         // Parse the reply to a chat action.
         Ok(ChatAction::try_from_reply(reply)?)
     }
@@ -186,20 +188,25 @@ impl ChatAction {
 
         // If the reply starts with `{`, it's a JSON string. Try to parse it.
         if reply.starts_with("{") {
-            let action: serde_json::Value = serde_json::from_str(reply)?;
+            let parsed_json: serde_json::Value = serde_json::from_str(reply)?;
 
             // Try to parse the action.
-            return action.get("action").map(|action| {
-                match action.as_str() {
-                    Some("insert_node") => Ok(Self::InsertNode(serde_json::from_value::<InsertNode>(action.clone())?)),
-                    Some("modify_node") => Ok(Self::ModifyNode(serde_json::from_value::<ModifyNode>(action.clone())?)),
+            return parsed_json.get("action").map(|action_type| {
+                tracing::info!("Parsed action type: {}", action_type);
+
+                match action_type.as_str() {
+                    Some("insert_node") => Ok(Self::InsertNode(serde_json::from_value::<InsertNode>(parsed_json.clone())?)),
+                    Some("modify_node") => Ok(Self::ModifyNode(serde_json::from_value::<ModifyNode>(parsed_json.clone())?)),
 
                     // If the agent choose to reply in an action, we can also handle it.
-                    Some("reply") => Ok(Self::Reply(serde_json::from_value::<Reply>(action.clone())?)),
+                    Some("reply") => Ok(Self::Reply(serde_json::from_value::<Reply>(parsed_json.clone())?)),
 
                     // The action type is not supported. Do not treat this as a reply.
                     // Report the error to the agent.
-                    _ => Err(anyhow!("Invalid action: {}", action)),
+                    _ =>  {
+                        tracing::error!("Invalid action: {}", action_type);
+                        Err(anyhow!("Invalid action: {}", action_type))
+                    },
                 }
             })
             // Default to reply if the `action` field is not found.

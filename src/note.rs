@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")] // Serde ignores unknown fields by default
 pub struct Note {
-    pub note_id: String,
+    pub note_id: Option<String>,
     pub lexical_state: LexicalState,
 }
 
@@ -550,7 +550,7 @@ mod tests {
             .expect("Should be able to parse example note JSON");
         
         // Test basic structure
-        assert_eq!(note.note_id, "ef454d5a-2474-4ac1-907a-61cb62de2f9b");
+        assert_eq!(note.note_id, Some("ef454d5a-2474-4ac1-907a-61cb62de2f9b".to_string()));
         assert_eq!(note.lexical_state.root.node_type, "root");
         assert_eq!(note.lexical_state.root.base.version, 1);
         
