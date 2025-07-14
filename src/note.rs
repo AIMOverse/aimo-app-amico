@@ -300,8 +300,9 @@ pub enum MessageSender {
 pub struct ChatSessionNode {
     #[serde(rename = "sessionId")]
     pub session_id: String,
-    #[serde(rename = "isActive")]
-    pub is_active: bool,
+    // This field is unnecessary and not used in the code.
+    // #[serde(rename = "isActive")]
+    // pub is_active: bool,
     pub messages: Vec<ChatSessionMessage>,
     #[serde(flatten)]
     pub base: BaseNodeProperties,

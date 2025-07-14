@@ -1,6 +1,6 @@
 [package]
 name = "aimo-note-agent"
-version = "0.1.3"
+version = "0.1.4"
 edition = "2024"
 description = "AIMO note app agent built with Amico"
 license = "MIT"
